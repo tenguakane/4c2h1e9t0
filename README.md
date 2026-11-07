@@ -1,20 +1,14 @@
 # Свой счёт
 
-Личный трекер подписок, рассрочек, долгов, праздников и дел. Работает как приложение на телефоне, данные синхронизируются через Cloudflare D1.
+Личный трекер подписок, рассрочек, долгов, праздников и дел. Один HTML-файл, данные в Firebase Firestore.
 
-## Структура
+## Настройка облака (один раз)
 
-- `public/` — само приложение: `index.html`, иконки, манифест, сервис-воркер для работы без сети.
-- `src/worker.js` — API синхронизации (`/api/ping`, `/api/data`).
-- `wrangler.toml` — настройки воркера и привязка базы D1.
+1. Firebase Console → создай проект → Build → Firestore Database → Create database.
+2. Build → Authentication → Get started → Sign-in method → включи Anonymous.
+3. Firestore → Rules: вставь содержимое `firestore.rules` и нажми Publish.
+4. Project settings → Your apps → Web app (`</>`) → скопируй `apiKey`, `authDomain`, `projectId`, `appId` в блок `CLOUD` в начале скрипта в `index.html`.
 
-## Обновление
+## Публикация
 
-Правишь файл в репозитории, делаешь коммит, и Cloudflare сам пересобирает воркер за минуту.
-
-## Локальный запуск
-
-```
-npm install
-npx wrangler dev
-```
+Settings → Pages → Deploy from a branch → `main`, папка `/ (root)`.

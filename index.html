@@ -3,9 +3,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Свой счёт">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="apple-touch-icon" href="/icon-180.png">
-<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap">
 <style>
@@ -252,82 +252,75 @@ try{const raw=localStorage.getItem(LS);if(raw)state=Object.assign(blank(),JSON.p
 let ui={tab:"home",payFilter:"all",debtFilter:"out",calY:new Date().getFullYear(),calM:new Date().getMonth(),calSel:todayKey()};
 try{const t=sessionStorage.getItem(LS+"-tab");if(t)ui.tab=t}catch(e){}
 
-/* ---------- cloud: Cloudflare Worker + D1 ---------- */
-const SK=LS+"-sync";
-let sync={key:null,ver:0,dirty:false};
-try{Object.assign(sync,JSON.parse(localStorage.getItem(SK)||"{}"))}catch(e){}
-let api=false,pushing=false,again=false,timer=null,lastOk=0,lastErr="",cloudWhy="";
-function saveSync(){try{localStorage.setItem(SK,JSON.stringify(sync))}catch(e){}}
+/* ============================================================
+   ОБЛАКО — НАСТРОЙКИ FIREBASE
+   Вставь сюда firebaseConfig своего проекта:
+   Firebase Console → Project settings → Your apps → Web app.
+   space — личное хранилище: все, кто открывает этот файл или сайт, видят одни и те же данные.
+   Пока apiKey пустой, приложение работает без облака, данные хранятся в браузере.
+   ============================================================ */
+const CLOUD={
+  firebase:{
+    apiKey:"AIzaSyAJi4iDAaBljM7-IJccn8qQNW5hEtYvQ14",
+    authDomain:"schet-4b35c.firebaseapp.com",
+    projectId:"schet-4b35c",
+    appId:"1:659249203450:web:ccd468d9986ef89554e143"
+  },
+  collection:"svoy_schet",
+  space:"ss-kbq6pm8rxbaw6vbar6inrnio"
+};
+
+let FS=null,docRef=null,pushTimer=null,lastOk=0,lastErr="",cloudOn=false,cloudWhy="",lastSentJson="";
 function setSync(kind,text){const el=$("#sync");el.className="sync "+kind;el.querySelector("span").textContent=text;if(kind==="ok"){lastOk=Date.now();lastErr=""}else if(kind==="err")lastErr=text;const st=$("#cloud-status");if(st)st.innerHTML=cloudStatusHtml()}
-function cloudStatusHtml(){if(!api)return "";const t=lastOk?new Date(lastOk).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"";return lastErr?`<span class="chip red">Нет синхронизации</span> ${esc(lastErr)}${t?`. Последний раз всё сохранилось в ${t}.`:"."}`:lastOk?`<span class="chip green">Облако подключено</span> Синхронизировано в ${t}.`:`<span class="chip gold">Подключаюсь…</span>`}
+function cloudStatusHtml(){
+  const t=lastOk?new Date(lastOk).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"";
+  if(!cloudOn)return `<span class="chip red">Не подключено</span> ${esc(cloudWhy||"Подключаюсь…")}`;
+  if(lastErr)return `<span class="chip red">Нет синхронизации</span> ${esc(cloudWhy||lastErr)}${t?` Последний раз всё сохранилось в ${t}.`:""}`;
+  return lastOk?`<span class="chip green">Облако подключено</span> Синхронизировано в ${t}.`:`<span class="chip gold">Подключаюсь…</span>`;
+}
 function cacheLocal(){try{localStorage.setItem(LS,JSON.stringify(state))}catch(e){}}
-function commit(){state.updatedAt=Date.now();cacheLocal();sync.dirty=true;saveSync();if(api&&sync.key){setSync("busy","Сохраняю…");clearTimeout(timer);timer=setTimeout(push,1200)}render()}
-function genKey(){const ab="abcdefghjkmnpqrstuvwxyz23456789",a=new Uint8Array(15);crypto.getRandomValues(a);let s="";for(const x of a)s+=ab[x%ab.length];return s.match(/.{5}/g).join("-")}
-async function call(method,body){
-  const r=await fetch("/api/data",{method,cache:"no-store",headers:{"authorization":"Bearer "+sync.key,"content-type":"application/json"},body:body?JSON.stringify(body):undefined});
-  const j=await r.json().catch(()=>({}));return Object.assign({status:r.status},j);
-}
-function adopt(data,ver){
-  state=Object.assign(blank(),data);sync.ver=ver;sync.dirty=false;saveSync();cacheLocal();applyLook();
-  if(rollover())commit();else{render();setSync("ok","В облаке")}
-}
-async function pull(){
-  if(!api||!sync.key||pushing||timer)return;
-  try{
-    const r=await call("GET");
-    if(r.status!==200){setSync("err","Ошибка облака");return}
-    if(!r.data){sync.ver=r.version||0;saveSync();if(state.updatedAt)push();else setSync("ok","В облаке");return}
-    if(r.version===sync.ver){if(sync.dirty)push();else setSync("ok","В облаке");return}
-    if(sync.dirty&&(state.updatedAt||0)>(r.data.updatedAt||0)){sync.ver=r.version;saveSync();push();return}
-    adopt(r.data,r.version);
-  }catch(e){setSync("err","Нет связи")}
+function commit(){state.updatedAt=Date.now();cacheLocal();if(cloudOn){setSync("busy",navigator.onLine===false?"Сохраню, когда появится сеть":"Сохраняю…");clearTimeout(pushTimer);pushTimer=setTimeout(push,700)}render()}
+function errText(e){
+  const c=e&&e.code||"";
+  if(c.includes("permission-denied")){cloudWhy="Firebase не пускает к данным. Проверь правила в Firestore → Rules.";return"Нет доступа"}
+  if(c.includes("unavailable")){cloudWhy="Нет связи с Firebase. Изменения сохранятся, когда появится интернет.";return"Нет связи"}
+  cloudWhy="Ошибка Firebase: "+(c||"неизвестная");return"Ошибка облака";
 }
 async function push(){
-  timer=null;if(!api||!sync.key)return;
-  if(pushing){again=true;return}
-  pushing=true;const sent=state.updatedAt;
+  pushTimer=null;if(!docRef)return;
+  const json=JSON.stringify(state);
+  if(json===lastSentJson){setSync("ok","В облаке");return}
+  try{await FS.setDoc(docRef,{state:json,updatedAt:state.updatedAt||Date.now(),v:1});lastSentJson=json;cloudWhy="";setSync("ok","В облаке")}
+  catch(e){setSync("err",errText(e))}
+}
+async function startCloud(){
+  const c=CLOUD.firebase;
+  if(!c.apiKey||!c.projectId){cloudWhy="В начале файла не указаны ключи Firebase. Данные хранятся только в этом браузере.";setSync("","Локально");return}
+  setSync("busy","Подключаюсь…");
   try{
-    const r=await call("PUT",{data:state,base:sync.ver});
-    if(r.status===200){sync.ver=r.version;if(state.updatedAt===sent)sync.dirty=false;saveSync();setSync("ok","В облаке")}
-    else if(r.status===409){
-      if(r.data&&(r.data.updatedAt||0)>(state.updatedAt||0))adopt(r.data,r.version);
-      else{sync.ver=r.version;saveSync();again=true}
-    }
-    else if(r.status===413)setSync("err","Слишком много данных");
-    else if(r.status===401)setSync("err","Неверный код");
-    else setSync("err","Ошибка облака");
-  }catch(e){setSync("err","Нет связи")}
-  pushing=false;if(again){again=false;push()}
+    const SDK="https://www.gstatic.com/firebasejs/10.12.2/";
+    const [A,AU,F]=await Promise.all([import(SDK+"firebase-app.js"),import(SDK+"firebase-auth.js"),import(SDK+"firebase-firestore.js")]);
+    FS=F;
+    const app=A.getApps().find(x=>x.name==="svoy-schet")||A.initializeApp(c,"svoy-schet");
+    await AU.signInAnonymously(AU.getAuth(app));
+    let db;try{db=F.initializeFirestore(app,{localCache:F.persistentLocalCache()})}catch(e){db=F.getFirestore(app)}
+    docRef=F.doc(db,CLOUD.collection,CLOUD.space);cloudOn=true;
+    F.onSnapshot(docRef,snap=>{
+      if(snap.metadata.hasPendingWrites)return;
+      if(!snap.exists()){if(state.updatedAt)push();else setSync("ok","В облаке");return}
+      const d=snap.data();let remote;try{remote=JSON.parse(d.state)}catch(e){return}
+      const ru=remote.updatedAt||0,lu=state.updatedAt||0;
+      if(ru>lu){state=Object.assign(blank(),remote);lastSentJson=d.state;cacheLocal();applyLook();if(rollover())commit();else{render();setSync("ok","В облаке")}}
+      else if(ru<lu){if(!pushTimer)push()}
+      else{lastSentJson=d.state;setSync("ok","В облаке")}
+    },e=>setSync("err",errText(e)));
+  }catch(e){
+    cloudOn=false;const code=e&&e.code||"";
+    cloudWhy=code.includes("operation-not-allowed")||code.includes("admin-restricted")?"В Firebase выключен анонимный вход. Включи его: Authentication → Sign-in method → Anonymous.":"Не удалось подключиться к Firebase. Проверь интернет и обнови страницу.";
+    setSync("err","Нет облака");
+  }
 }
-async function detectCloud(){
-  if(!/^https?:$/.test(location.protocol)){cloudWhy="Приложение открыто как файл с устройства. Облако работает, только если открыть его по адресу на Cloudflare.";setSync("","Локально");return}
-  try{const r=await fetch("/api/ping",{cache:"no-store"});const j=await r.json();api=!!(j&&j.app==="svoy-schet");if(!api)cloudWhy="Сервер по этому адресу не отвечает как «Свой счёт».";if(j&&j.app==="svoy-schet"&&!j.db)cloudWhy="Сервер работает, но к нему не привязана база D1."}
-  catch(e){api=false;cloudWhy="Этот адрес не связан с сервером синхронизации. Открой приложение по его адресу на Cloudflare (…workers.dev)."}
-  if(!api){setSync("","Локально");return}
-  render();
-  if(!sync.key){sync.key=genKey();saveSync();if(!state.updatedAt)setTimeout(sheetWelcome,400)}
-  setSync("busy","Синхронизирую…");pull();
-  setInterval(()=>{if(!document.hidden)pull()},45000);
-  if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
-}
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)pull()});
-window.addEventListener("online",()=>{if(sync.dirty)push();else pull()});
-
-function applyCode(v){
-  sync={key:v,ver:-1,dirty:false};saveSync();setSync("busy","Синхронизирую…");
-  call("GET").then(r=>{
-    if(r.status===200&&r.data){adopt(r.data,r.version);toast("Данные загружены из облака")}
-    else if(r.status===200){sync.ver=r.version||0;saveSync();toast("По этому коду пока пусто, отправляю свои данные");commit()}
-    else setSync("err","Ошибка облака");
-  }).catch(()=>setSync("err","Нет связи"));
-}
-function sheetWelcome(){
-  openSheet("Добро пожаловать",`
-    <p class="note">Если ты уже пользуешься «Своим счётом» на другом устройстве, введи код оттуда, и все записи появятся здесь. Код лежит в Настройках, в блоке «Код синхронизации».</p>
-    ${fld("Код с другого устройства",`<input name="code" id="f-wcode" placeholder="xxxxx-xxxxx-xxxxx" autocomplete="off" autocapitalize="off" spellcheck="false">`)}
-    <div class="actions"><button type="button" class="btn ghost" data-act="close-sheet">Начинаю с нуля</button><span class="grow"></span><button class="btn pri">Подключить</button></div>`,
-  fd=>{const v=String(fd.get("code")||"").trim().toLowerCase();if(!/^[a-z0-9-]{12,64}$/.test(v)){toast("Код выглядит неправильно");return false}applyCode(v)});
-}
+window.addEventListener("online",()=>{if(cloudOn&&JSON.stringify(state)!==lastSentJson)push()});
 
 /* ---------- install as app ---------- */
 let installEvt=null;
@@ -335,6 +328,7 @@ const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigat
 const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;render()});
 window.addEventListener("appinstalled",()=>{installEvt=null;toast("Приложение установлено");render()});
+function canInstall(){let top=true;try{top=window.top===window}catch(e){top=false}return top&&location.protocol==="https:"&&!isStandalone()}
 function installHidden(){try{return localStorage.getItem(LS+"-noinstall")==="1"}catch(e){return false}}
 async function doInstall(){
   if(installEvt){installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;render();return}
@@ -504,7 +498,7 @@ function vHome(){
   const isEmpty=!state.payments.length&&!state.debts.length&&!state.tasks.length&&!state.events.length;
   return `
   ${isEmpty?`<div class="empty" style="margin-top:6px"><b>Здесь пока пусто.</b>Добавь первую подписку, долг или дело кнопкой «Добавить» внизу. Праздники в календаре уже есть.<button class="btn sm ghost" data-act="demo">Заполнить примером</button></div>`:""}
-  ${api&&!isStandalone()&&!installHidden()?`<div class="banner" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 4px"><span style="flex:1;min-width:180px"><b>Установи «Свой счёт» как приложение</b>: иконка на главном экране, открывается без браузера.</span><button class="btn sm pri" data-act="install">Установить</button><button class="btn sm ghost" data-act="install-hide" aria-label="Скрыть">Не сейчас</button></div>`:""}
+  ${canInstall()&&!installHidden()?`<div class="banner" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 4px"><span style="flex:1;min-width:180px"><b>Установи «Свой счёт» как приложение</b>: иконка на главном экране, открывается без браузера.</span><button class="btn sm pri" data-act="install">Установить</button><button class="btn sm ghost" data-act="install-hide" aria-label="Скрыть">Не сейчас</button></div>`:""}
   <section class="hero" style="margin-top:6px" aria-label="Платежи за месяц">
     <div><div class="lbl">К оплате в ${MONTHS_PREP[now.getMonth()]}</div>
     <div class="big num">${money(ms.total)}</div></div>
@@ -751,15 +745,8 @@ function sheetSettings(){
     <div class="field"><span>Цветовая тема</span><div class="swatches">${PALETTES.map(([k,l,c])=>`<button type="button" class="sw ${(L.palette||"emerald")===k?"on":""}" data-act="pal" data-p="${k}"><i style="background:${c}"></i>${l}</button>`).join("")}</div></div>
     <div class="field"><span>Оформление</span><div class="seg" style="margin:0;box-shadow:none;border:1px solid var(--line)">${MODES.map(([k,l])=>`<button type="button" class="${(L.mode||"auto")===k?"on":""}" data-act="mode" data-m="${k}">${l}</button>`).join("")}</div></div>
     ${fld("Валюта",`<select name="cur" id="f-cur">${["₴","$","€","zł","£"].map(c=>`<option ${state.currency===c?"selected":""}>${c}</option>`).join("")}</select>`)}
-    ${api?`<div class="field"><span>Облако</span><p class="note" id="cloud-status" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${cloudStatusHtml()}</p><div class="actions" style="margin:0"><button type="button" class="btn sm" data-act="sync-now">Синхронизировать сейчас</button></div></div>
-      <div class="field"><span>Код синхронизации</span>
-      <div class="codebox"><code id="sync-code">${esc(sync.key)}</code><button type="button" class="btn sm" data-act="copy-code">Копировать</button></div>
-      <p class="note">Чтобы данные совпадали на телефоне и компьютере, на всех устройствах должен стоять один и тот же код. На другом устройстве открой Настройки и введи этот код в поле «Подключить по коду». Никому его не показывай: по коду открываются все записи.</p></div>
-      <div class="field"><span>Подключить по коду с другого устройства</span>
-      <div class="codebox"><input id="f-newcode" placeholder="xxxxx-xxxxx-xxxxx" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:10px;font-size:16px"><button type="button" class="btn sm" data-act="use-code" data-confirm="0">Подключить</button></div>
-      <p class="note">Данные на этом устройстве заменятся данными из облака.</p></div>`
-    :`<div class="field"><span>Облако</span><p class="note" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="chip red">Не подключено</span> ${esc(cloudWhy||"Проверяю подключение…")} Пока данные хранятся только в этом браузере.</p></div>`}
-    ${api&&!isStandalone()?`<div class="field"><span>Приложение</span><div class="actions" style="margin:0"><button type="button" class="btn" data-act="install">Установить на устройство</button></div></div>`:""}
+    <div class="field"><span>Облако</span><p class="note" id="cloud-status" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${cloudStatusHtml()}</p>${cloudOn?`<p class="note">Каждое изменение сразу сохраняется в Firebase и появляется на всех устройствах, где открыто это приложение.</p>`:""}</div>
+    ${canInstall()?`<div class="field"><span>Приложение</span><div class="actions" style="margin:0"><button type="button" class="btn" data-act="install">Установить на устройство</button></div></div>`:""}
     <div class="field"><span>Резервная копия</span><div class="actions" style="margin:0"><button type="button" class="btn" data-act="export">Сохранить файл</button><label class="btn" style="cursor:pointer">Загрузить файл<input type="file" accept=".json,application/json" id="f-import" hidden></label></div></div>
     <div class="field"><span>Данные</span><div class="actions" style="margin:0"><button type="button" class="btn ghost" data-act="demo">Заполнить примером</button><button type="button" class="btn danger" data-act="reset" data-confirm="0">Стереть всё</button></div></div>
     <div class="actions"><span class="grow"></span><button class="btn pri">Готово</button></div>`,
@@ -833,11 +820,6 @@ document.addEventListener("click",e=>{
     case "export":exportData();break;
     case "pal":{state.look=Object.assign({},state.look,{palette:el.dataset.p});applyLook();commit();document.querySelectorAll(".sw").forEach(b=>b.classList.toggle("on",b===el));break}
     case "mode":{state.look=Object.assign({},state.look,{mode:el.dataset.m});applyLook();commit();el.parentNode.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b===el));break}
-    case "sync-now":{setSync("busy","Синхронизирую…");if(sync.dirty){clearTimeout(timer);push()}else pull();break}
-    case "copy-code":{const t=sync.key;if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast("Код скопирован"),()=>{const r=document.createRange();r.selectNodeContents($("#sync-code"));getSelection().removeAllRanges();getSelection().addRange(r);toast("Выдели и скопируй код")});break}
-    case "use-code":{const v=($("#f-newcode").value||"").trim().toLowerCase();if(!/^[a-z0-9-]{12,64}$/.test(v)){toast("Код выглядит неправильно");break}
-      if(el.dataset.confirm!=="1"){el.dataset.confirm="1";el.textContent="Точно заменить?";break}
-      closeSheet();applyCode(v);break}
     case "close-sheet":closeSheet();break;
     case "install":closeSheet();doInstall();break;
     case "install-hide":try{localStorage.setItem(LS+"-noinstall","1")}catch(_){}render();toast("Установить можно в Настройках");break;
@@ -855,7 +837,8 @@ setInterval(()=>{const t=todayKey();if(t!==lastDay){lastDay=t;if(rollover())comm
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){const t=todayKey();if(t!==lastDay){lastDay=t;if(rollover())commit();else render()}}});
 
 if(rollover())commit();else render();
-detectCloud();
+startCloud();
+if("serviceWorker" in navigator&&canInstall())navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();
 </script>
 </body></html>
