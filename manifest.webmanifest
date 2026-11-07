@@ -1,14 +1,14 @@
 {
-  "name": "Свой счёт",
-  "short_name": "Свой счёт",
+  "name": "Трекер",
+  "short_name": "Трекер",
   "description": "Платежи, долги, праздники и дела",
   "lang": "ru",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#EDF0F1",
-  "theme_color": "#14705A",
+  "background_color": "#EEF2E2",
+  "theme_color": "#5E8C2A",
   "icons": [
     {
       "src": "icon-192.png",
