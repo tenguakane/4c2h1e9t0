@@ -256,9 +256,10 @@ try{const t=sessionStorage.getItem(LS+"-tab");if(t)ui.tab=t}catch(e){}
 const SK=LS+"-sync";
 let sync={key:null,ver:0,dirty:false};
 try{Object.assign(sync,JSON.parse(localStorage.getItem(SK)||"{}"))}catch(e){}
-let api=false,pushing=false,again=false,timer=null;
+let api=false,pushing=false,again=false,timer=null,lastOk=0,lastErr="";
 function saveSync(){try{localStorage.setItem(SK,JSON.stringify(sync))}catch(e){}}
-function setSync(kind,text){const el=$("#sync");el.className="sync "+kind;el.querySelector("span").textContent=text}
+function setSync(kind,text){const el=$("#sync");el.className="sync "+kind;el.querySelector("span").textContent=text;if(kind==="ok"){lastOk=Date.now();lastErr=""}else if(kind==="err")lastErr=text;const st=$("#cloud-status");if(st)st.innerHTML=cloudStatusHtml()}
+function cloudStatusHtml(){if(!api)return "";const t=lastOk?new Date(lastOk).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"";return lastErr?`<span class="chip red">Нет синхронизации</span> ${esc(lastErr)}${t?`. Последний раз всё сохранилось в ${t}.`:"."}`:lastOk?`<span class="chip green">Облако подключено</span> Синхронизировано в ${t}.`:`<span class="chip gold">Подключаюсь…</span>`}
 function cacheLocal(){try{localStorage.setItem(LS,JSON.stringify(state))}catch(e){}}
 function commit(){state.updatedAt=Date.now();cacheLocal();sync.dirty=true;saveSync();if(api&&sync.key){setSync("busy","Сохраняю…");clearTimeout(timer);timer=setTimeout(push,1200)}render()}
 function genKey(){const ab="abcdefghjkmnpqrstuvwxyz23456789",a=new Uint8Array(15);crypto.getRandomValues(a);let s="";for(const x of a)s+=ab[x%ab.length];return s.match(/.{5}/g).join("-")}
@@ -457,7 +458,7 @@ function vHome(){
     <div class="row"><span>Оплачено ${money(ms.paid)}</span><span>Осталось ${money(ms.total-ms.paid)}</span></div>
   </section>
   <div class="duo">
-    <button class="tile owe" data-act="goto" data-tab="debts" data-f="out"><span class="lbl">Я должен</span><span class="v">${money(dt.out+dt.loans)}</span><span class="sub">${dt.loans?`из них рассрочки ${money(dt.loans)}`:"людям и по кредитам"}</span></button>
+    <button class="tile owe" data-act="goto" data-tab="debts" data-f="out"><span class="lbl">Я должна</span><span class="v">${money(dt.out+dt.loans)}</span><span class="sub">${dt.loans?`из них рассрочки ${money(dt.loans)}`:"людям и по кредитам"}</span></button>
     <button class="tile owed" data-act="goto" data-tab="debts" data-f="in"><span class="lbl">Мне должны</span><span class="v">${money(dt.inn)}</span><span class="sub">${state.debts.filter(d=>d.dir==="in"&&debtLeft(d)>0).length} ${plural(state.debts.filter(d=>d.dir==="in"&&debtLeft(d)>0).length,"человек","человека","человек")}</span></button>
   </div>
   <h2 class="sec">Ближайшие платежи<button class="more" data-act="goto" data-tab="pay">Все</button></h2>
@@ -500,18 +501,18 @@ function vDebts(){
   const loans=state.payments.filter(p=>p.kind==="loan"&&!finished(p));
   return `
   <div class="duo">
-    <button class="tile owe" data-act="debtf" data-f="out"><span class="lbl">Я должен</span><span class="v">${money(dt.out+dt.loans)}</span><span class="sub">людям ${money(dt.out)} · частями ${money(dt.loans)}</span></button>
+    <button class="tile owe" data-act="debtf" data-f="out"><span class="lbl">Я должна</span><span class="v">${money(dt.out+dt.loans)}</span><span class="sub">людям ${money(dt.out)} · частями ${money(dt.loans)}</span></button>
     <button class="tile owed" data-act="debtf" data-f="in"><span class="lbl">Мне должны</span><span class="v">${money(dt.inn)}</span><span class="sub">разница ${money(dt.inn-dt.out-dt.loans)}</span></button>
   </div>
-  <div class="seg"><button class="${f==="out"?"on":""}" data-act="debtf" data-f="out">Я должен</button><button class="${f==="in"?"on":""}" data-act="debtf" data-f="in">Мне должны</button></div>
-  <h2 class="sec">${f==="out"?"Кому я должен":"Кто мне должен"}</h2>
+  <div class="seg"><button class="${f==="out"?"on":""}" data-act="debtf" data-f="out">Я должна</button><button class="${f==="in"?"on":""}" data-act="debtf" data-f="in">Мне должны</button></div>
+  <h2 class="sec">${f==="out"?"Кому я должна":"Кто мне должен"}</h2>
   ${list.length?`<div class="list">${list.map(d=>{
     const left=debtLeft(d),closed=left<=0,over=d.due&&d.due<todayKey()&&!closed;
     return `<div class="item ${closed?"done":""}"><div class="main tap" data-act="edit-debt" data-id="${d.id}"><div class="t">${esc(d.who)}</div>
     <div class="m">${d.note?`<span>${esc(d.note)}</span>`:""}${d.paid?`<span>${f==="out"?"отдано":"вернули"} ${money(d.paid)} из ${money(d.amount)}</span>`:""}${d.due?`<span class="chip ${over?"red":""}">до ${fmtDate(d.due)}</span>`:""}${closed?`<span class="chip green">закрыт</span>`:""}</div></div>
     <div class="amt" style="color:${closed?"var(--muted)":f==="out"?"var(--owe)":"var(--accent)"}">${money(left)}</div>
     ${closed?"":`<button class="btn sm pay" data-act="repay" data-id="${d.id}">${f==="out"?"Отдать":"Вернули"}</button>`}</div>`}).join("")}</div>`
-  :`<div class="empty">${f==="out"?"Ты никому не должен. Так держать.":"Тебе никто не должен."}</div>`}
+  :`<div class="empty">${f==="out"?"Ты никому не должна. Так держать.":"Тебе никто не должен."}</div>`}
   ${f==="out"&&loans.length?`<h2 class="sec">Оплата частями</h2><div class="list">${loans.map(p=>`<div class="item tap" data-act="edit-pay" data-id="${p.id}"><div class="main"><div class="t">${esc(p.name)}</div><div class="m"><span>${paidCount(p)} из ${p.parts} частей</span><span>по ${money(p.amount)}</span></div></div><div class="amt" style="color:var(--owe)">${money(loanLeft(p))}</div></div>`).join("")}</div>`:""}`;
 }
 function vCal(){
@@ -609,7 +610,7 @@ function sheetPay(p){
 function sheetDebt(d,dir){
   const isNew=!d;d=d||{dir:dir||"out",who:"",amount:"",due:"",note:""};
   openSheet(isNew?"Новый долг":"Долг",`
-    <div class="radios"><label><input type="radio" name="dir" value="out" ${d.dir==="out"?"checked":""}><span>Я должен</span></label><label><input type="radio" name="dir" value="in" ${d.dir==="in"?"checked":""}><span>Мне должны</span></label></div>
+    <div class="radios"><label><input type="radio" name="dir" value="out" ${d.dir==="out"?"checked":""}><span>Я должна</span></label><label><input type="radio" name="dir" value="in" ${d.dir==="in"?"checked":""}><span>Мне должны</span></label></div>
     ${fld("Кто",`<input name="who" id="f-dwho" value="${esc(d.who)}" placeholder="Имя или банк">`)}
     <div class="two">${fld("Сумма долга",`<input name="amount" id="f-damount" inputmode="decimal" value="${d.amount}" placeholder="0">`)}${fld("Вернуть до",`<input type="date" name="due" id="f-ddue" value="${d.due||""}">`)}</div>
     ${isNew?"":fld("Уже возвращено",`<input name="paid" id="f-dpaid" inputmode="decimal" value="${d.paid||0}">`)}
@@ -687,7 +688,7 @@ function sheetEvent(e,date,occDate){
 }
 function sheetAddChooser(){
   openSheet("Что добавить?",`<div class="list" style="box-shadow:none;border:1px solid var(--line)">
-    ${[["new-pay","Платёж","подписка, регулярная оплата, рассрочка"],["new-debt","Долг","кому должен ты или кто должен тебе"],["new-event","Событие","день рождения, праздник, поездка"],["new-task","Дело","задача на день"]].map(([a,t,m])=>`<button type="button" class="item tap" style="width:100%;border-left:0;border-right:0;border-bottom:0;background:none;text-align:left" data-act="${a}"><div class="main"><div class="t">${t}</div><div class="m">${m}</div></div></button>`).join("")}</div>`,()=>{});
+    ${[["new-pay","Платёж","подписка, регулярная оплата, рассрочка"],["new-debt","Долг","кому должна ты или кто должен тебе"],["new-event","Событие","день рождения, праздник, поездка"],["new-task","Дело","задача на день"]].map(([a,t,m])=>`<button type="button" class="item tap" style="width:100%;border-left:0;border-right:0;border-bottom:0;background:none;text-align:left" data-act="${a}"><div class="main"><div class="t">${t}</div><div class="m">${m}</div></div></button>`).join("")}</div>`,()=>{});
 }
 function sheetSettings(){
   const L=state.look||{};
@@ -695,7 +696,8 @@ function sheetSettings(){
     <div class="field"><span>Цветовая тема</span><div class="swatches">${PALETTES.map(([k,l,c])=>`<button type="button" class="sw ${(L.palette||"emerald")===k?"on":""}" data-act="pal" data-p="${k}"><i style="background:${c}"></i>${l}</button>`).join("")}</div></div>
     <div class="field"><span>Оформление</span><div class="seg" style="margin:0;box-shadow:none;border:1px solid var(--line)">${MODES.map(([k,l])=>`<button type="button" class="${(L.mode||"auto")===k?"on":""}" data-act="mode" data-m="${k}">${l}</button>`).join("")}</div></div>
     ${fld("Валюта",`<select name="cur" id="f-cur">${["₴","$","€","zł","£"].map(c=>`<option ${state.currency===c?"selected":""}>${c}</option>`).join("")}</select>`)}
-    ${api?`<div class="field"><span>Код синхронизации</span>
+    ${api?`<div class="field"><span>Облако</span><p class="note" id="cloud-status" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${cloudStatusHtml()}</p><div class="actions" style="margin:0"><button type="button" class="btn sm" data-act="sync-now">Синхронизировать сейчас</button></div></div>
+      <div class="field"><span>Код синхронизации</span>
       <div class="codebox"><code id="sync-code">${esc(sync.key)}</code><button type="button" class="btn sm" data-act="copy-code">Копировать</button></div>
       <p class="note">Данные хранятся в твоём Cloudflare. Чтобы открыть их на другом устройстве, введи там этот код. Никому его не показывай: по коду открываются все записи.</p></div>
       <div class="field"><span>Подключить по коду с другого устройства</span>
@@ -775,6 +777,7 @@ document.addEventListener("click",e=>{
     case "export":exportData();break;
     case "pal":{state.look=Object.assign({},state.look,{palette:el.dataset.p});applyLook();commit();document.querySelectorAll(".sw").forEach(b=>b.classList.toggle("on",b===el));break}
     case "mode":{state.look=Object.assign({},state.look,{mode:el.dataset.m});applyLook();commit();el.parentNode.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b===el));break}
+    case "sync-now":{setSync("busy","Синхронизирую…");if(sync.dirty){clearTimeout(timer);push()}else pull();break}
     case "copy-code":{const t=sync.key;if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast("Код скопирован"),()=>{const r=document.createRange();r.selectNodeContents($("#sync-code"));getSelection().removeAllRanges();getSelection().addRange(r);toast("Выдели и скопируй код")});break}
     case "use-code":{const v=($("#f-newcode").value||"").trim().toLowerCase();if(!/^[a-z0-9-]{12,64}$/.test(v)){toast("Код выглядит неправильно");break}
       if(el.dataset.confirm!=="1"){el.dataset.confirm="1";el.textContent="Точно заменить?";break}
