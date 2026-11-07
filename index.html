@@ -56,7 +56,7 @@ button{cursor:pointer}
 .brand{font-family:var(--f-display);font-weight:600;font-size:19px;letter-spacing:-.01em;margin:0}
 .brand small{display:block;font-family:var(--f-body);font-weight:500;font-size:12px;color:var(--muted);letter-spacing:0}
 .top .sp{flex:1}
-.sync{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:4px 10px;white-space:nowrap}
+.sync{cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:4px 10px;white-space:nowrap}
 .sync i{width:7px;height:7px;border-radius:50%;background:var(--muted)}
 .sync.ok i{background:var(--accent)} .sync.busy i{background:var(--fest)} .sync.err i{background:var(--owe)}
 .iconbtn{width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center}
@@ -197,7 +197,7 @@ textarea.io{width:100%;min-height:120px;font-family:var(--f-mono);font-size:12px
   <header class="top">
     <h1 class="brand">Свой счёт<small id="today-lbl"></small></h1>
     <span class="sp"></span>
-    <span class="sync" id="sync"><i></i><span>Локально</span></span>
+    <button type="button" class="sync" id="sync" data-act="settings" aria-label="Состояние облака"><i></i><span>Локально</span></button>
     <button class="iconbtn" data-act="settings" aria-label="Настройки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   </header>
   <main class="view" id="view"></main>
@@ -256,7 +256,7 @@ try{const t=sessionStorage.getItem(LS+"-tab");if(t)ui.tab=t}catch(e){}
 const SK=LS+"-sync";
 let sync={key:null,ver:0,dirty:false};
 try{Object.assign(sync,JSON.parse(localStorage.getItem(SK)||"{}"))}catch(e){}
-let api=false,pushing=false,again=false,timer=null,lastOk=0,lastErr="";
+let api=false,pushing=false,again=false,timer=null,lastOk=0,lastErr="",cloudWhy="";
 function saveSync(){try{localStorage.setItem(SK,JSON.stringify(sync))}catch(e){}}
 function setSync(kind,text){const el=$("#sync");el.className="sync "+kind;el.querySelector("span").textContent=text;if(kind==="ok"){lastOk=Date.now();lastErr=""}else if(kind==="err")lastErr=text;const st=$("#cloud-status");if(st)st.innerHTML=cloudStatusHtml()}
 function cloudStatusHtml(){if(!api)return "";const t=lastOk?new Date(lastOk).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}):"";return lastErr?`<span class="chip red">Нет синхронизации</span> ${esc(lastErr)}${t?`. Последний раз всё сохранилось в ${t}.`:"."}`:lastOk?`<span class="chip green">Облако подключено</span> Синхронизировано в ${t}.`:`<span class="chip gold">Подключаюсь…</span>`}
@@ -300,16 +300,53 @@ async function push(){
   pushing=false;if(again){again=false;push()}
 }
 async function detectCloud(){
-  if(!/^https?:$/.test(location.protocol)){setSync("","Локально");return}
-  try{const r=await fetch("/api/ping",{cache:"no-store"});const j=await r.json();api=!!(j&&j.app==="svoy-schet")}catch(e){api=false}
+  if(!/^https?:$/.test(location.protocol)){cloudWhy="Приложение открыто как файл с устройства. Облако работает, только если открыть его по адресу на Cloudflare.";setSync("","Локально");return}
+  try{const r=await fetch("/api/ping",{cache:"no-store"});const j=await r.json();api=!!(j&&j.app==="svoy-schet");if(!api)cloudWhy="Сервер по этому адресу не отвечает как «Свой счёт».";if(j&&j.app==="svoy-schet"&&!j.db)cloudWhy="Сервер работает, но к нему не привязана база D1."}
+  catch(e){api=false;cloudWhy="Этот адрес не связан с сервером синхронизации. Открой приложение по его адресу на Cloudflare (…workers.dev)."}
   if(!api){setSync("","Локально");return}
-  if(!sync.key){sync.key=genKey();saveSync()}
+  render();
+  if(!sync.key){sync.key=genKey();saveSync();if(!state.updatedAt)setTimeout(sheetWelcome,400)}
   setSync("busy","Синхронизирую…");pull();
   setInterval(()=>{if(!document.hidden)pull()},45000);
   if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
 }
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)pull()});
 window.addEventListener("online",()=>{if(sync.dirty)push();else pull()});
+
+function applyCode(v){
+  sync={key:v,ver:-1,dirty:false};saveSync();setSync("busy","Синхронизирую…");
+  call("GET").then(r=>{
+    if(r.status===200&&r.data){adopt(r.data,r.version);toast("Данные загружены из облака")}
+    else if(r.status===200){sync.ver=r.version||0;saveSync();toast("По этому коду пока пусто, отправляю свои данные");commit()}
+    else setSync("err","Ошибка облака");
+  }).catch(()=>setSync("err","Нет связи"));
+}
+function sheetWelcome(){
+  openSheet("Добро пожаловать",`
+    <p class="note">Если ты уже пользуешься «Своим счётом» на другом устройстве, введи код оттуда, и все записи появятся здесь. Код лежит в Настройках, в блоке «Код синхронизации».</p>
+    ${fld("Код с другого устройства",`<input name="code" id="f-wcode" placeholder="xxxxx-xxxxx-xxxxx" autocomplete="off" autocapitalize="off" spellcheck="false">`)}
+    <div class="actions"><button type="button" class="btn ghost" data-act="close-sheet">Начинаю с нуля</button><span class="grow"></span><button class="btn pri">Подключить</button></div>`,
+  fd=>{const v=String(fd.get("code")||"").trim().toLowerCase();if(!/^[a-z0-9-]{12,64}$/.test(v)){toast("Код выглядит неправильно");return false}applyCode(v)});
+}
+
+/* ---------- install as app ---------- */
+let installEvt=null;
+const isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e;render()});
+window.addEventListener("appinstalled",()=>{installEvt=null;toast("Приложение установлено");render()});
+function installHidden(){try{return localStorage.getItem(LS+"-noinstall")==="1"}catch(e){return false}}
+async function doInstall(){
+  if(installEvt){installEvt.prompt();try{await installEvt.userChoice}catch(e){}installEvt=null;render();return}
+  openSheet("Установить приложение",isIOS()?`
+    <p class="note">На iPhone установка делается через Safari:</p>
+    <ol class="note" style="padding-left:18px;margin:0;display:grid;gap:6px"><li>Открой этот адрес именно в Safari.</li><li>Нажми кнопку «Поделиться» (квадрат со стрелкой вверх).</li><li>Выбери «На экран „Домой“» и нажми «Добавить».</li></ol>
+    <div class="actions"><span class="grow"></span><button class="btn pri">Понятно</button></div>`:`
+    <p class="note">Браузер пока не предложил установку. Сделай так:</p>
+    <ol class="note" style="padding-left:18px;margin:0;display:grid;gap:6px"><li>Открой меню браузера (три точки справа вверху).</li><li>Выбери «Установить приложение» или «Добавить на главный экран».</li><li>Подтверди установку.</li></ol>
+    <p class="note">Если такого пункта нет, обнови страницу и подожди пару секунд: Chrome показывает его после первой загрузки.</p>
+    <div class="actions"><span class="grow"></span><button class="btn pri">Понятно</button></div>`,()=>{});
+}
 
 /* ---------- look: palette + light/dark ---------- */
 const PALETTES=[["emerald","Изумруд","#14705A"],["orange","Апельсин","#E0661A"],["sun","Солнце","#D9A21B"],["rose","Роза","#B32F5C"],["plum","Слива","#7A3A84"],["ocean","Океан","#1D5EA8"],["graphite","Графит","#3A4852"]];
@@ -358,6 +395,13 @@ function loanLeft(p){return p.kind!=="loan"?0:Math.max(0,(p.parts-paidCount(p)))
 function monthStats(y,m){
   const from=key(new Date(y,m,1)),to=key(new Date(y,m,dim(y,m)));let total=0,paid=0,items=[];
   for(const p of state.payments){for(const o of occ(p,from,to)){if(o.k<floorKey(p))continue;total+=p.amount;const pd=isPaid(p,o);if(pd)paid+=p.amount;items.push({p,o,pd})}}
+  const t=todayKey(),isCur=t>=from&&t<=to;
+  for(const d of state.debts){
+    if(d.dir!=="out"||!d.due)continue;
+    const left=debtLeft(d),paidIn=(d.log||[]).filter(l=>l.d>=from&&l.d<=to).reduce((a,l)=>a+l.a,0);
+    const dueIn=d.due>=from&&d.due<=to,overdue=isCur&&d.due<from&&left>0;
+    if(dueIn||overdue){total+=left+paidIn;paid+=paidIn}
+  }
   return{total,paid,items};
 }
 function togglePaid(id,k){
@@ -442,15 +486,25 @@ function occRow(x){
   <div class="main"><div class="t">${esc(x.title)}</div><div class="m"><span>${relDay(x.date)}</span>${kindChip}${save}</div></div>
   <div class="amt">${b.sum?money(b.sum):`<span class="chip">задать бюджет</span>`}${b.sum?"<small>примерно</small>":""}</div></div>`;
 }
+function debtDueRow(d){
+  const over=d.due<todayKey();
+  return `<div class="item"><div class="date-badge"><b>${parse(d.due).getDate()}</b><span>${MSHORT[parse(d.due).getMonth()]}</span></div>
+  <div class="main tap" data-act="edit-debt" data-id="${d.id}"><div class="t">Долг: ${esc(d.who)}</div><div class="m"><span>${relDay(d.due)}</span>${over?`<span class="chip red">просрочено</span>`:`<span class="chip">вернуть</span>`}</div></div>
+  <div class="amt">${money(debtLeft(d))}</div>
+  <button class="btn sm pay" data-act="repay" data-id="${d.id}">Отдать</button></div>`;
+}
 function vHome(){
   const now=new Date(),ms=monthStats(now.getFullYear(),now.getMonth()),dt=debtTotals();
   const pct=ms.total?Math.min(100,ms.paid/ms.total*100):0;
-  const up=upcomingPayments(14).slice(0,6);
+  const up=upcomingPayments(14).map(x=>({k:x.o.k,html:payRow(x.p,x.o,{rel:true})}))
+    .concat(state.debts.filter(d=>d.dir==="out"&&d.due&&debtLeft(d)>0&&d.due<=addDays(todayKey(),14)).map(d=>({k:d.due,html:debtDueRow(d)})))
+    .sort((a,b)=>a.k.localeCompare(b.k)).slice(0,8);
   const t=todayKey(),tasks=state.tasks.filter(x=>x.date===t).sort((a,b)=>a.done-b.done);
   const occs=upcomingOccasions(4);
   const isEmpty=!state.payments.length&&!state.debts.length&&!state.tasks.length&&!state.events.length;
   return `
   ${isEmpty?`<div class="empty" style="margin-top:6px"><b>Здесь пока пусто.</b>Добавь первую подписку, долг или дело кнопкой «Добавить» внизу. Праздники в календаре уже есть.<button class="btn sm ghost" data-act="demo">Заполнить примером</button></div>`:""}
+  ${api&&!isStandalone()&&!installHidden()?`<div class="banner" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 4px"><span style="flex:1;min-width:180px"><b>Установи «Свой счёт» как приложение</b>: иконка на главном экране, открывается без браузера.</span><button class="btn sm pri" data-act="install">Установить</button><button class="btn sm ghost" data-act="install-hide" aria-label="Скрыть">Не сейчас</button></div>`:""}
   <section class="hero" style="margin-top:6px" aria-label="Платежи за месяц">
     <div><div class="lbl">К оплате в ${MONTHS_PREP[now.getMonth()]}</div>
     <div class="big num">${money(ms.total)}</div></div>
@@ -462,7 +516,7 @@ function vHome(){
     <button class="tile owed" data-act="goto" data-tab="debts" data-f="in"><span class="lbl">Мне должны</span><span class="v">${money(dt.inn)}</span><span class="sub">${state.debts.filter(d=>d.dir==="in"&&debtLeft(d)>0).length} ${plural(state.debts.filter(d=>d.dir==="in"&&debtLeft(d)>0).length,"человек","человека","человек")}</span></button>
   </div>
   <h2 class="sec">Ближайшие платежи<button class="more" data-act="goto" data-tab="pay">Все</button></h2>
-  ${up.length?`<div class="list">${up.map(x=>payRow(x.p,x.o,{rel:true})).join("")}</div>`:`<div class="empty">На ближайшие две недели оплат нет.</div>`}
+  ${up.length?`<div class="list">${up.map(x=>x.html).join("")}</div>`:`<div class="empty">На ближайшие две недели оплат нет.</div>`}
   <h2 class="sec">Дела на сегодня<button class="more" data-act="goto" data-tab="tasks">Все</button></h2>
   ${tasks.length?`<div class="list">${tasks.map(taskRow).join("")}</div>`:`<div class="empty">На сегодня дел нет. Невыполненные дела сами переезжают на следующий день.</div>`}
   <h2 class="sec">Ближайшие праздники<button class="more" data-act="goto" data-tab="cal">Календарь</button></h2>
@@ -523,6 +577,7 @@ function vCal(){
   for(const yy of [y-1,y,y+1])for(const o of occasions(yy)){if(o.date>=from&&o.date<=to)(occMap[o.date]=occMap[o.date]||[]).push(o)}
   for(const p of state.payments)for(const o of occ(p,from,to)){if(o.k>=floorKey(p))(payMap[o.k]=payMap[o.k]||[]).push({p,o})}
   for(const x of state.tasks)if(x.date>=from&&x.date<=to)(taskMap[x.date]=taskMap[x.date]||[]).push(x);
+  for(const d of state.debts)if(d.due&&d.due>=from&&d.due<=to&&debtLeft(d)>0)(payMap[d.due]=payMap[d.due]||[]).push({debt:d});
   let cells="";
   const total=Math.ceil((startOff+days)/7)*7;
   for(let i=0;i<total;i++){
@@ -531,7 +586,7 @@ function vCal(){
     const dots=[(payMap[k]||[]).length?'<i class="d-pay"></i>':"",(taskMap[k]||[]).some(x=>!x.done)?'<i class="d-task"></i>':"",(occMap[k]||[]).length?'<i class="d-ev"></i>':""].join("");
     cells+=`<button class="day ${out?"out":""} ${[0,6].includes(d.getDay())?"wknd":""} ${k===t?"today":""} ${k===ui.calSel?"sel":""} ${hol?"hol":""}" data-act="cal-day" data-k="${k}" aria-label="${fmtDate(k)}">${d.getDate()}<span class="dots">${dots}</span></button>`;
   }
-  const s=ui.calSel,so=(occasions(parse(s).getFullYear()).filter(o=>o.date===s)),sp=state.payments.flatMap(p=>occ(p,s,s).filter(o=>o.k>=floorKey(p)).map(o=>({p,o}))),st=state.tasks.filter(x=>x.date===s);
+  const s=ui.calSel,so=(occasions(parse(s).getFullYear()).filter(o=>o.date===s)),sp=state.payments.flatMap(p=>occ(p,s,s).filter(o=>o.k>=floorKey(p)).map(o=>({p,o}))),st=state.tasks.filter(x=>x.date===s),sd=state.debts.filter(d=>d.due===s&&debtLeft(d)>0);
   const ups=upcomingOccasions(8);
   return `
   <div class="cal">
@@ -543,7 +598,7 @@ function vCal(){
     <div class="legend"><span><i class="d-pay"></i>оплата</span><span><i class="d-task"></i>дело</span><span><i class="d-ev"></i>праздник или событие</span></div>
   </div>
   <h2 class="sec">${s===t?"Сегодня, ":""}${fmtDateW(s)}<button class="more" data-act="add-task-on" data-k="${s}">+ дело</button></h2>
-  ${so.length||sp.length||st.length?`<div class="list">${so.map(occRow).join("")}${sp.map(x=>payRow(x.p,x.o)).join("")}${st.map(taskRow).join("")}</div>`:`<div class="empty">В этот день ничего не запланировано.</div>`}
+  ${so.length||sp.length||st.length||sd.length?`<div class="list">${so.map(occRow).join("")}${sp.map(x=>payRow(x.p,x.o)).join("")}${sd.map(d=>d.dir==="out"?debtDueRow(d):`<div class="item tap" data-act="edit-debt" data-id="${d.id}"><div class="main"><div class="t">Обещали вернуть: ${esc(d.who)}</div><div class="m"><span class="chip green">мне должны</span></div></div><div class="amt" style="color:var(--accent)">${money(debtLeft(d))}</div></div>`).join("")}${st.map(taskRow).join("")}</div>`:`<div class="empty">В этот день ничего не запланировано.</div>`}
   <h2 class="sec">Ближайшие праздники и события</h2>
   <div class="list">${ups.map(occRow).join("")}</div>
   ${state.hiddenHol.length?`<p class="note" style="margin-top:8px">Скрыто праздников: ${state.hiddenHol.length}. <button class="more" style="border:0;background:none;color:var(--accent);font-weight:700;padding:0" data-act="unhide">Вернуть все</button></p>`:""}`;
@@ -699,11 +754,12 @@ function sheetSettings(){
     ${api?`<div class="field"><span>Облако</span><p class="note" id="cloud-status" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${cloudStatusHtml()}</p><div class="actions" style="margin:0"><button type="button" class="btn sm" data-act="sync-now">Синхронизировать сейчас</button></div></div>
       <div class="field"><span>Код синхронизации</span>
       <div class="codebox"><code id="sync-code">${esc(sync.key)}</code><button type="button" class="btn sm" data-act="copy-code">Копировать</button></div>
-      <p class="note">Данные хранятся в твоём Cloudflare. Чтобы открыть их на другом устройстве, введи там этот код. Никому его не показывай: по коду открываются все записи.</p></div>
+      <p class="note">Чтобы данные совпадали на телефоне и компьютере, на всех устройствах должен стоять один и тот же код. На другом устройстве открой Настройки и введи этот код в поле «Подключить по коду». Никому его не показывай: по коду открываются все записи.</p></div>
       <div class="field"><span>Подключить по коду с другого устройства</span>
       <div class="codebox"><input id="f-newcode" placeholder="xxxxx-xxxxx-xxxxx" autocomplete="off" autocapitalize="off" spellcheck="false" style="flex:1;min-width:0;border:1px solid var(--line);background:var(--surface-2);border-radius:10px;padding:10px;font-size:16px"><button type="button" class="btn sm" data-act="use-code" data-confirm="0">Подключить</button></div>
       <p class="note">Данные на этом устройстве заменятся данными из облака.</p></div>`
-    :`<p class="note">Облако не подключено: приложение открыто не со своего адреса на Cloudflare. Сейчас данные хранятся только в этом браузере.</p>`}
+    :`<div class="field"><span>Облако</span><p class="note" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span class="chip red">Не подключено</span> ${esc(cloudWhy||"Проверяю подключение…")} Пока данные хранятся только в этом браузере.</p></div>`}
+    ${api&&!isStandalone()?`<div class="field"><span>Приложение</span><div class="actions" style="margin:0"><button type="button" class="btn" data-act="install">Установить на устройство</button></div></div>`:""}
     <div class="field"><span>Резервная копия</span><div class="actions" style="margin:0"><button type="button" class="btn" data-act="export">Сохранить файл</button><label class="btn" style="cursor:pointer">Загрузить файл<input type="file" accept=".json,application/json" id="f-import" hidden></label></div></div>
     <div class="field"><span>Данные</span><div class="actions" style="margin:0"><button type="button" class="btn ghost" data-act="demo">Заполнить примером</button><button type="button" class="btn danger" data-act="reset" data-confirm="0">Стереть всё</button></div></div>
     <div class="actions"><span class="grow"></span><button class="btn pri">Готово</button></div>`,
@@ -781,8 +837,10 @@ document.addEventListener("click",e=>{
     case "copy-code":{const t=sync.key;if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast("Код скопирован"),()=>{const r=document.createRange();r.selectNodeContents($("#sync-code"));getSelection().removeAllRanges();getSelection().addRange(r);toast("Выдели и скопируй код")});break}
     case "use-code":{const v=($("#f-newcode").value||"").trim().toLowerCase();if(!/^[a-z0-9-]{12,64}$/.test(v)){toast("Код выглядит неправильно");break}
       if(el.dataset.confirm!=="1"){el.dataset.confirm="1";el.textContent="Точно заменить?";break}
-      sync={key:v,ver:-1,dirty:false};saveSync();closeSheet();setSync("busy","Синхронизирую…");
-      call("GET").then(r=>{if(r.status===200&&r.data)adopt(r.data,r.version);else if(r.status===200){sync.ver=r.version||0;saveSync();toast("По этому коду пока пусто, отправляю свои данные");commit()}else setSync("err","Ошибка облака")}).catch(()=>setSync("err","Нет связи"));break}
+      closeSheet();applyCode(v);break}
+    case "close-sheet":closeSheet();break;
+    case "install":closeSheet();doInstall();break;
+    case "install-hide":try{localStorage.setItem(LS+"-noinstall","1")}catch(_){}render();toast("Установить можно в Настройках");break;
     case "demo":closeSheet();demo();break;
     case "reset":armDelete(el,()=>{const c=state.currency,lk=state.look;state=blank();state.currency=c;state.look=lk;commit();toast("Все данные стёрты")});break;
   }
