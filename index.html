@@ -628,9 +628,44 @@ function openSheet(title,body,onSubmit,after){
   const f=$("#sheet-form");
   f.addEventListener("submit",e=>{e.preventDefault();if(sheetSubmit&&sheetSubmit(new FormData(f),f)!==false)closeSheet()});
   if(after)after(f);
+  histSheetOpen();
   const first=f.querySelector("input:not([type=hidden]):not([type=radio]):not([type=checkbox])");if(first&&!first.value)setTimeout(()=>first.focus(),60);
 }
-function closeSheet(){$("#sheet-root").innerHTML="";sheetSubmit=null}
+function closeSheet(fromPop){$("#sheet-root").innerHTML="";sheetSubmit=null;if(fromPop!==true)histSheetClose()}
+
+/* ---------- history: кнопка «Назад» ---------- */
+/* Каждая вкладка и открытая шторка — отдельная запись в истории.
+   «Назад»: закрывает шторку → возвращает на прошлую вкладку → на «Сводке» просит нажать ещё раз для выхода. */
+const H={sheet:false,ign:0,want:false,exitT:0};
+function saveScroll(){try{history.replaceState(Object.assign({},history.state,{y:scrollY}),"")}catch(e){}}
+function histSheetOpen(){if(H.sheet)return;H.sheet=true;if(H.ign)H.want=true;else{saveScroll();history.pushState({tab:ui.tab,sheet:1},"")}}
+function histSheetClose(){if(!H.sheet)return;H.sheet=false;if(H.want){H.want=false;return}H.ign++;history.back()}
+function setTab(tab,push){
+  if(H.sheet){$("#sheet-root").innerHTML="";sheetSubmit=null;H.sheet=false;H.want=false;history.replaceState({tab},"")}
+  else if(push&&tab!==ui.tab){saveScroll();history.pushState({tab},"")}
+  ui.tab=tab;try{sessionStorage.setItem(LS+"-tab",tab)}catch(_){}
+}
+function histInit(){
+  try{
+    history.replaceState({tab:"home",exit:1},"");
+    history.pushState({tab:"home"},"");
+    if(ui.tab!=="home")history.pushState({tab:ui.tab},"");
+  }catch(e){}
+}
+addEventListener("popstate",e=>{
+  if(H.ign){H.ign--;if(H.want){H.want=false;history.pushState({tab:ui.tab,sheet:1},"")}return}
+  const st=e.state||{tab:"home"};
+  if(H.sheet){closeSheet(true);H.sheet=false;H.want=false}
+  if(st.sheet){history.replaceState({tab:st.tab},"")}
+  if(st.exit){
+    if(Date.now()<H.exitT){history.back();return}
+    H.exitT=Date.now()+2000;toast("Нажми «Назад» ещё раз, чтобы выйти");
+    history.pushState({tab:"home"},"");
+  }
+  const tab=st.tab||"home",changed=tab!==ui.tab;
+  ui.tab=tab;try{sessionStorage.setItem(LS+"-tab",tab)}catch(_){}
+  if(changed){render();window.scrollTo({top:st.y||0})}
+});
 const fld=(label,html)=>`<label class="field"><span>${label}</span>${html}</label>`;
 const delBtn=(act,id)=>`<button type="button" class="btn danger" data-act="${act}" data-id="${id}" data-confirm="0">Удалить</button>`;
 function armDelete(btn,fn){
@@ -791,7 +826,7 @@ function demo(){
 /* ---------- events ---------- */
 document.addEventListener("click",e=>{
   const navb=e.target.closest(".nav button");
-  if(navb){ui.tab=navb.dataset.tab;try{sessionStorage.setItem(LS+"-tab",ui.tab)}catch(_){}render();window.scrollTo({top:0});return}
+  if(navb){setTab(navb.dataset.tab,true);render();window.scrollTo({top:0});return}
   const el=e.target.closest("[data-act]");if(!el)return;
   const a=el.dataset.act,id=el.dataset.id;
   if(a==="close-bg"){if(e.target===el)closeSheet();return}
@@ -799,7 +834,7 @@ document.addEventListener("click",e=>{
     case "fab":({home:sheetAddChooser,pay:()=>sheetPay(),debts:()=>sheetDebt(null,ui.debtFilter),cal:()=>sheetEvent(null,ui.calSel),tasks:()=>sheetTask()})[ui.tab]();break;
     case "new-pay":sheetPay();break;case "new-debt":sheetDebt();break;case "new-event":sheetEvent(null,todayKey());break;case "new-task":sheetTask();break;
     case "settings":sheetSettings();break;
-    case "goto":ui.tab=el.dataset.tab;if(el.dataset.f)ui.debtFilter=el.dataset.f;render();window.scrollTo({top:0});break;
+    case "goto":setTab(el.dataset.tab,true);if(el.dataset.f)ui.debtFilter=el.dataset.f;render();window.scrollTo({top:0});break;
     case "toggle-paid":togglePaid(id,el.dataset.k);break;
     case "edit-pay":sheetPay(state.payments.find(x=>x.id===id));break;
     case "del-pay":armDelete(el,()=>{state.payments=state.payments.filter(x=>x.id!==id);commit();toast("Платёж удалён")});break;
@@ -846,6 +881,7 @@ let lastDay=todayKey();
 setInterval(()=>{const t=todayKey();if(t!==lastDay){lastDay=t;if(rollover())commit();else render()}},30000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){const t=todayKey();if(t!==lastDay){lastDay=t;if(rollover())commit();else render()}}});
 
+histInit();
 if(rollover())commit();else render();
 startCloud();
 if("serviceWorker" in navigator&&canInstall())navigator.serviceWorker.register("sw.js").catch(()=>{});
