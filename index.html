@@ -18,6 +18,8 @@
   --accent:var(--a-l); --accent-ink:var(--ai-l); --accent-soft:var(--as-l);
   --owe:#B3362E; --owe-soft:#F8E0DC;
   --fest:var(--f-l); --fest-soft:var(--fs-l);
+  /* text on fest-soft: darker than --fest so small labels keep 4.5:1 contrast in light theme */
+  --fest-ink:color-mix(in srgb,var(--fest) 75%,#000);
   --task:#4652A8; --task-soft:#E2E5F8;
   --shadow:0 1px 2px rgba(19,32,42,.06),0 8px 24px rgba(19,32,42,.06);
   --f-display:"Unbounded","Manrope",system-ui,sans-serif;
@@ -35,12 +37,12 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:color-mix(in srgb,var(--a-d) 5%,#0E1418); --surface:#162027; --surface-2:#1C2830; --ink:#E5ECEE; --muted:#93A4AC; --line:#2A3943;
   --accent:var(--a-d); --accent-ink:var(--ai-d); --accent-soft:var(--as-d);
-  --owe:#F07A6E; --owe-soft:#3B1E1B; --fest:var(--f-d); --fest-soft:var(--fs-d); --task:#A1A9F2; --task-soft:#252A4D;
+  --owe:#F07A6E; --owe-soft:#3B1E1B; --fest:var(--f-d); --fest-soft:var(--fs-d); --fest-ink:var(--f-d); --task:#A1A9F2; --task-soft:#252A4D;
   --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark;}}
 :root[data-theme="dark"]{
   --bg:color-mix(in srgb,var(--a-d) 5%,#0E1418); --surface:#162027; --surface-2:#1C2830; --ink:#E5ECEE; --muted:#93A4AC; --line:#2A3943;
   --accent:var(--a-d); --accent-ink:var(--ai-d); --accent-soft:var(--as-d);
-  --owe:#F07A6E; --owe-soft:#3B1E1B; --fest:var(--f-d); --fest-soft:var(--fs-d); --task:#A1A9F2; --task-soft:#252A4D;
+  --owe:#F07A6E; --owe-soft:#3B1E1B; --fest:var(--f-d); --fest-soft:var(--fs-d); --fest-ink:var(--f-d); --task:#A1A9F2; --task-soft:#252A4D;
   --shadow:0 1px 2px rgba(0,0,0,.3); color-scheme:dark;}
 
 *{box-sizing:border-box}
@@ -101,19 +103,25 @@ h2.sec .more{margin-left:auto;font-family:var(--f-body);font-size:13px;font-weig
 .empty{background:var(--surface);border:1px dashed var(--line);border-radius:16px;padding:18px;color:var(--muted);font-size:14px;display:grid;gap:10px;justify-items:start}
 .empty b{color:var(--ink)}
 
-.chip{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--surface-2);color:var(--muted);white-space:nowrap}
 .chip.red{background:var(--owe-soft);color:var(--owe)} .chip.green{background:var(--accent-soft);color:var(--accent)}
-.chip.gold{background:var(--fest-soft);color:var(--fest)} .chip.blue{background:var(--task-soft);color:var(--task)}
+.chip.gold{background:var(--fest-soft);color:var(--fest-ink)} .chip.blue{background:var(--task-soft);color:var(--task)}
 
 .date-badge{width:46px;flex:none;text-align:center;border-radius:12px;background:var(--surface-2);padding:6px 0;line-height:1.1}
 .date-badge b{display:block;font-family:var(--f-display);font-weight:600;font-size:17px}
-.date-badge span{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.date-badge.fest{background:var(--fest-soft)} .date-badge.fest b{color:var(--fest)}
+.date-badge span{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.date-badge.fest{background:var(--fest-soft)} .date-badge.fest b{color:var(--fest-ink)}
 
 .check{width:26px;height:26px;flex:none;border-radius:8px;border:2px solid var(--line);background:none;display:grid;place-items:center;padding:0}
 .check.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .check svg{width:14px;height:14px}
 .done .t{text-decoration:line-through;color:var(--muted)}
+/* tick animation for «Оплачено» and task checkbox */
+@keyframes pop{0%{transform:scale(.82)}60%{transform:scale(1.1)}100%{transform:none}}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.pop{animation:pop .34s ease-out}
+.pop svg path{stroke-dasharray:1;stroke-dashoffset:1;animation:draw .3s .06s ease-out forwards}
+@media (prefers-reduced-motion:reduce){.pop{animation:none}.pop svg path{animation:none;stroke-dashoffset:0}}
 
 .btn{border:0;border-radius:12px;padding:10px 14px;font-weight:700;background:var(--surface-2);color:var(--ink);font-size:14px}
 .btn.pri{background:var(--accent);color:var(--accent-ink)}
@@ -121,7 +129,8 @@ h2.sec .more{margin-left:auto;font-family:var(--f-body);font-size:13px;font-weig
 .btn.ghost{background:none;border:1px solid var(--line)}
 .btn.danger{background:var(--owe-soft);color:var(--owe)}
 .btn.pay{background:var(--accent-soft);color:var(--accent)}
-.btn.paid{background:var(--accent);color:var(--accent-ink)}
+.btn.paid{background:var(--accent);color:var(--accent-ink);display:inline-flex;align-items:center;gap:4px}
+.btn.paid svg{width:14px;height:14px;flex:none}
 
 .seg{display:flex;background:var(--surface);border-radius:12px;padding:4px;gap:4px;box-shadow:var(--shadow);margin-top:6px}
 .seg button{flex:1;border:0;background:none;border-radius:9px;padding:8px 6px;font-weight:700;font-size:13px;color:var(--muted)}
@@ -136,13 +145,13 @@ h2.sec .more{margin-left:auto;font-family:var(--f-body);font-size:13px;font-weig
 .cal-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .cal-head h3{flex:1;margin:0;font-family:var(--f-display);font-weight:600;font-size:16px;text-transform:capitalize}
 .grid7{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
-.wd{font-size:11px;font-weight:700;color:var(--muted);text-align:center;padding:4px 0;text-transform:uppercase}
+.wd{font-size:12px;font-weight:700;color:var(--muted);text-align:center;padding:4px 0;text-transform:uppercase}
 .day{aspect-ratio:1/1.05;max-width:100%;border:0;background:none;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0;font-weight:600;font-variant-numeric:tabular-nums;position:relative}
 .day.out{opacity:.35}
 .day.wknd{color:var(--owe)}
 .day.today{box-shadow:inset 0 0 0 2px var(--accent)}
 .day.sel{background:var(--accent);color:var(--accent-ink)}
-.day.hol:not(.sel){background:var(--fest-soft);color:var(--fest)}
+.day.hol:not(.sel){background:var(--fest-soft);color:var(--fest-ink)}
 .dots{display:flex;gap:2px;height:5px}
 .dots i{width:5px;height:5px;border-radius:50%}
 .d-pay{background:var(--owe)} .d-task{background:var(--task)} .d-ev{background:var(--fest)}
@@ -154,7 +163,7 @@ h2.sec .more{margin-left:auto;font-family:var(--f-body);font-size:13px;font-weig
 /* Nav */
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 .nav-in{max-width:620px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);height:var(--nav-h)}
-.nav button{border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;font-weight:700;color:var(--muted)}
+.nav button{border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;font-weight:700;color:var(--muted)}
 .nav button svg{width:22px;height:22px}
 .nav button.on{color:var(--accent)}
 .fab{position:fixed;z-index:24;right:max(18px,calc(50vw - 292px),calc(env(safe-area-inset-right,0px) + 18px));bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom,0px));height:54px;padding:0 20px 0 16px;border-radius:18px;border:0;background:var(--accent);color:var(--accent-ink);font-weight:800;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 35%,transparent)}
@@ -190,7 +199,8 @@ h2.sec .more{margin-left:auto;font-family:var(--f-body);font-size:13px;font-weig
 .note{font-size:13px;color:var(--muted);margin:0}
 .total-line{display:flex;justify-content:space-between;font-weight:700;padding-top:6px;border-top:1px solid var(--line)}
 .banner{background:var(--fest-soft);color:var(--ink);border-radius:14px;padding:10px 12px;font-size:13px;margin-top:8px}
-.toast{position:fixed;z-index:60;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + 84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;max-width:calc(100vw - 32px)}
+.toast{position:fixed;z-index:60;left:50%;transform:translateX(-50%);bottom:calc(var(--nav-h) + 84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;max-width:calc(100vw - 32px);display:flex;align-items:center;gap:14px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.toast button{border:0;background:none;color:var(--accent-soft);font-weight:800;font-size:14px;padding:8px 4px;margin:-8px -4px -8px 0;white-space:nowrap}
 
 .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
 .sw{border:2px solid var(--line);border-radius:14px;background:var(--surface-2);padding:10px 8px;display:grid;justify-items:center;gap:6px;font-size:12.5px;font-weight:700}
@@ -207,6 +217,7 @@ textarea.io{width:100%;min-height:120px;font-family:var(--f-mono);font-size:12px
     <h1 class="brand">Свой счёт<small id="today-lbl"></small></h1>
     <span class="sp"></span>
     <button type="button" class="sync" id="sync" data-act="settings" aria-label="Состояние облака"><i></i><span>Локально</span></button>
+    <button class="iconbtn" data-act="search" aria-label="Поиск"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg></button>
     <button class="iconbtn" data-act="settings" aria-label="Настройки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   </header>
   <main class="view" id="view"></main>
@@ -251,7 +262,12 @@ const fmtDate=k=>{const d=parse(k);return `${d.getDate()} ${MONTHS_GEN[d.getMont
 const fmtDateW=k=>{const d=parse(k);return `${WD[d.getDay()]}, ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`};
 function plural(n,a,b,c){n=Math.abs(n)%100;const n1=n%10;if(n>10&&n<20)return c;if(n1>1&&n1<5)return b;if(n1===1)return a;return c}
 function relDay(k){const d=diffDays(todayKey(),k);if(d===0)return"сегодня";if(d===1)return"завтра";if(d===-1)return"вчера";if(d>1)return`через ${d} ${plural(d,"день","дня","дней")}`;return`${-d} ${plural(-d,"день","дня","дней")} назад`}
-const ICON_CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const ICON_CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const norm=s=>String(s??"").toLowerCase().replace(/ё/g,"е").trim();
+const reduceMotion=()=>{try{return matchMedia("(prefers-reduced-motion: reduce)").matches}catch(e){return false}};
+function haptic(ms){try{if(navigator.vibrate)navigator.vibrate(ms||15)}catch(e){}}
+/* datalist with unique past values, newest first */
+function dlist(id,vals){const u=[...new Set(vals.map(v=>String(v??"").trim()).filter(Boolean))].slice(0,60);return `<datalist id="${id}">${u.map(v=>`<option value="${esc(v)}"></option>`).join("")}</datalist>`}
 
 /* ---------- state ---------- */
 const LS="svoy-schet-v1";
@@ -464,6 +480,26 @@ function render(){
   $("#fab-lbl").textContent={home:"Добавить",pay:"Платёж",debts:"Долг",cal:"Событие",tasks:"Дело"}[ui.tab];
   const v=$("#view");
   v.innerHTML=({home:vHome,pay:vPay,debts:vDebts,cal:vCal,tasks:vTasks}[ui.tab])();
+  updateBadge();
+}
+/* ---------- app icon badge: overdue + due today payments, debts I owe, open tasks for today ---------- */
+function badgeCount(){
+  const t=todayKey();
+  return upcomingPayments(0).length
+    +state.debts.filter(d=>d.dir==="out"&&d.due&&d.due<=t&&debtLeft(d)>0).length
+    +state.tasks.filter(x=>!x.done&&x.date<=t).length;
+}
+let lastBadge=-1;
+function updateBadge(){
+  if(!("setAppBadge" in navigator))return;
+  const n=badgeCount();if(n===lastBadge)return;lastBadge=n;
+  try{(n?navigator.setAppBadge(n):navigator.clearAppBadge()).catch(()=>{})}catch(e){}
+}
+/* in-place tick + vibration, then apply the change (so the row does not vanish before the animation) */
+function celebrate(el,html,cls,then){
+  if(el.dataset.busy)return;el.dataset.busy="1";haptic(15);
+  el.className=cls+" pop";el.innerHTML=html;
+  setTimeout(then,reduceMotion()?0:380);
 }
 function payRow(p,o,opts={}){
   const t=todayKey(),over=o.k<t,pd=isPaid(p,o);
@@ -473,7 +509,7 @@ function payRow(p,o,opts={}){
   return `<div class="item"><div class="date-badge"><b>${parse(o.k).getDate()}</b><span>${MSHORT[parse(o.k).getMonth()]}</span></div>
   <div class="main tap" data-act="edit-pay" data-id="${p.id}"><div class="t">${esc(p.name)}</div><div class="m"><span>${opts.rel?relDay(o.k):KIND[p.kind]}</span>${chips.join("")}</div></div>
   <div class="amt">${money(p.amount)}</div>
-  <button class="btn sm ${pd?"paid":"pay"}" data-act="toggle-paid" data-id="${p.id}" data-k="${o.k}" aria-label="${pd?"Снять отметку":"Отметить оплату"}">${pd?"Оплачено":"Оплатить"}</button></div>`;
+  <button class="btn sm ${pd?"paid":"pay"}" data-act="toggle-paid" data-id="${p.id}" data-k="${o.k}" aria-label="${pd?"Снять отметку":"Отметить оплату"}">${pd?ICON_CHECK+"Оплачено":"Оплатить"}</button></div>`;
 }
 function taskRow(x){
   const chips=[];
@@ -667,24 +703,49 @@ addEventListener("popstate",e=>{
   if(changed){render();window.scrollTo({top:st.y||0})}
 });
 const fld=(label,html)=>`<label class="field"><span>${label}</span>${html}</label>`;
-const delBtn=(act,id)=>`<button type="button" class="btn danger" data-act="${act}" data-id="${id}" data-confirm="0">Удалить</button>`;
+const delBtn=(act,id)=>`<button type="button" class="btn danger" data-act="${act}" data-id="${id}">Удалить</button>`;
+/* double tap is kept only for «Стереть всё» */
 function armDelete(btn,fn){
-  if(btn.dataset.confirm!=="1"){btn.dataset.confirm="1";btn.textContent="Точно удалить?";setTimeout(()=>{if(btn.isConnected){btn.dataset.confirm="0";btn.textContent="Удалить"}},3500);return}
+  if(btn.dataset.confirm!=="1"){btn.dataset.confirm="1";btn.textContent="Точно стереть?";setTimeout(()=>{if(btn.isConnected){btn.dataset.confirm="0";btn.textContent="Стереть всё"}},3500);return}
   fn();closeSheet();
 }
+/* delete at once, offer «Отменить» for 5 seconds */
+function removeWithUndo(list,id,msg){
+  const arr=state[list],i=arr.findIndex(x=>x.id===id);if(i<0)return;
+  const item=arr.splice(i,1)[0];commit();closeSheet();
+  toast(msg,{undo:()=>{const a=state[list];if(a.some(x=>x.id===id))return;a.splice(Math.min(i,a.length),0,item);commit();toast("Восстановлено")}});
+}
+function repayDebt(id,a){
+  const d=state.debts.find(x=>x.id===id);if(!d||!(a>0))return;
+  const prevPaid=d.paid||0,prevLen=(d.log||[]).length;
+  d.paid=prevPaid+a;(d.log=d.log||[]).push({d:todayKey(),a});
+  const closed=debtLeft(d)<=0;if(closed)haptic(15);
+  commit();
+  toast(closed?"Долг закрыт":"Записано",{undo:()=>{const x=state.debts.find(y=>y.id===id);if(!x)return;x.paid=prevPaid;x.log=(x.log||[]).slice(0,prevLen);commit();toast("Отменено")}});
+}
+async function shareDebt(d){
+  const left=debtLeft(d);
+  const sum=d.paid?`осталось ${money(left)} из ${money(d.amount)}`:money(left);
+  const text=`Привет! Напоминаю про долг: ${sum}${d.note?` (${d.note})`:""}.${d.due?` Договаривались вернуть до ${fmtDate(d.due)}.`:""} Спасибо!`;
+  if(navigator.share){try{await navigator.share({text});return}catch(e){if(e&&e.name==="AbortError")return}}
+  try{await navigator.clipboard.writeText(text);toast("Текст напоминания скопирован");return}catch(e){}
+  openSheet("Напоминание о долге",`<textarea class="io" readonly style="font-family:var(--f-body);font-size:15px;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--surface-2)">${esc(text)}</textarea><p class="note">Скопируй текст и отправь вручную.</p><div class="actions"><span class="grow"></span><button class="btn pri">Готово</button></div>`,()=>{});
+}
 
-function sheetPay(p){
-  const isNew=!p;p=p||{kind:"sub",freq:"month",start:todayKey(),amount:"",name:"",parts:6,prePaid:0};
-  openSheet(isNew?"Новый платёж":"Платёж",`
+function sheetPay(p,pre){
+  const isNew=!p;p=p||Object.assign({kind:"sub",freq:"month",start:todayKey(),amount:"",name:"",parts:6,prePaid:0},pre||{});
+  openSheet(isNew?(pre?"Копия платежа":"Новый платёж"):"Платёж",`
     <div class="radios">${Object.entries(KIND).map(([k,l])=>`<label><input type="radio" name="kind" value="${k}" ${p.kind===k?"checked":""}><span>${l}</span></label>`).join("")}</div>
-    ${fld("Название",`<input name="name" id="f-pname" required value="${esc(p.name)}" placeholder="Например, Netflix или телефон">`)}
+    ${fld("Название",`<input name="name" id="f-pname" required value="${esc(p.name)}" placeholder="Например, Netflix или телефон" list="dl-pname" autocomplete="off">`)}
+    ${dlist("dl-pname",state.payments.slice().reverse().map(x=>x.name))}
+    ${pre?`<p class="note">Проверь дату и сумму, потом нажми «Добавить».</p>`:""}
     <div class="two">${fld(`<span id="amt-lbl">Сумма</span>`,`<input name="amount" id="f-pamount" inputmode="decimal" value="${p.amount}" placeholder="0">`)}
     ${fld("Повторять",`<select name="freq" id="f-pfreq">${Object.entries(FREQ).map(([k,l])=>`<option value="${k}" ${p.freq===k?"selected":""}>${l}</option>`).join("")}</select>`)}</div>
     ${fld(`<span id="start-lbl">Дата первого платежа</span>`,`<input type="date" name="start" id="f-pstart" value="${p.start}">`)}
     <div class="two" id="loan-f">${fld("Всего частей",`<input name="parts" id="f-pparts" inputmode="numeric" value="${p.parts||6}">`)}${fld("Уже оплачено частей",`<input name="prePaid" id="f-ppre" inputmode="numeric" value="${p.prePaid||0}">`)}</div>
     <p class="note" id="loan-note"></p>
     ${fld("Заметка",`<input name="note" id="f-pnote" value="${esc(p.note||"")}" placeholder="Необязательно">`)}
-    <div class="actions">${isNew?"":delBtn("del-pay",p.id)}${!isNew&&!p.end&&p.kind!=="loan"&&p.freq!=="once"?`<button type="button" class="btn ghost" data-act="end-pay" data-id="${p.id}">Отключить</button>`:""}${!isNew&&p.end?`<button type="button" class="btn ghost" data-act="resume-pay" data-id="${p.id}">Возобновить</button>`:""}<span class="grow"></span><button class="btn pri">${isNew?"Добавить":"Сохранить"}</button></div>`,
+    <div class="actions">${isNew?"":delBtn("del-pay",p.id)}${!isNew&&!p.end&&p.kind!=="loan"&&p.freq!=="once"?`<button type="button" class="btn ghost" data-act="end-pay" data-id="${p.id}">Отключить</button>`:""}${!isNew&&p.end?`<button type="button" class="btn ghost" data-act="resume-pay" data-id="${p.id}">Возобновить</button>`:""}${isNew?"":`<button type="button" class="btn ghost" data-act="copy-pay" data-id="${p.id}">Скопировать</button>`}<span class="grow"></span><button class="btn pri">${isNew?"Добавить":"Сохранить"}</button></div>`,
   fd=>{
     const name=String(fd.get("name")).trim(),amount=num(fd.get("amount"));
     if(!name||!amount){toast("Укажи название и сумму");return false}
@@ -699,18 +760,28 @@ function sheetPay(p){
       const parts=parseInt($("#f-pparts").value)||0,pre=parseInt($("#f-ppre").value)||0,a=num($("#f-pamount").value);
       $("#loan-note").textContent=loan&&parts&&a?`Всего ${money(parts*a)}, осталось выплатить ${money(Math.max(0,parts-pre)*a)}.`:"";};
     f.addEventListener("input",upd);f.addEventListener("change",upd);upd();
+    /* picked a past name from the hints → fill amount, kind and frequency from the latest such payment */
+    if(isNew){const nm=$("#f-pname");nm.addEventListener("input",()=>{
+      const v=norm(nm.value);if(!v||$("#f-pamount").value)return;
+      const src=state.payments.slice().reverse().find(x=>norm(x.name)===v);if(!src)return;
+      $("#f-pamount").value=src.amount;$("#f-pfreq").value=src.freq;
+      const r=f.querySelector(`input[name=kind][value="${src.kind}"]`);if(r)r.checked=true;
+      if(src.kind==="loan")$("#f-pparts").value=src.parts||6;
+      upd();
+    })}
   });
 }
 function sheetDebt(d,dir){
   const isNew=!d;d=d||{dir:dir||"out",who:"",amount:"",due:"",note:""};
   openSheet(isNew?"Новый долг":"Долг",`
     <div class="radios"><label><input type="radio" name="dir" value="out" ${d.dir==="out"?"checked":""}><span>Я должна</span></label><label><input type="radio" name="dir" value="in" ${d.dir==="in"?"checked":""}><span>Мне должны</span></label></div>
-    ${fld("Кто",`<input name="who" id="f-dwho" value="${esc(d.who)}" placeholder="Имя или банк">`)}
+    ${fld("Кто",`<input name="who" id="f-dwho" value="${esc(d.who)}" placeholder="Имя или банк" list="dl-dwho" autocomplete="off">`)}
+    ${dlist("dl-dwho",state.debts.slice().reverse().map(x=>x.who))}
     <div class="two">${fld("Сумма долга",`<input name="amount" id="f-damount" inputmode="decimal" value="${d.amount}" placeholder="0">`)}${fld("Вернуть до",`<input type="date" name="due" id="f-ddue" value="${d.due||""}">`)}</div>
     ${isNew?"":fld("Уже возвращено",`<input name="paid" id="f-dpaid" inputmode="decimal" value="${d.paid||0}">`)}
     ${fld("За что",`<input name="note" id="f-dnote" value="${esc(d.note||"")}" placeholder="Необязательно">`)}
     ${!isNew&&d.log&&d.log.length?`<div class="field"><span>История</span><div class="list" style="box-shadow:none;border:1px solid var(--line)">${d.log.slice().reverse().map(l=>`<div class="item"><div class="main"><div class="m">${fmtDate(l.d)}</div></div><div class="amt">${money(l.a)}</div></div>`).join("")}</div></div>`:""}
-    <div class="actions">${isNew?"":delBtn("del-debt",d.id)}<span class="grow"></span><button class="btn pri">${isNew?"Добавить":"Сохранить"}</button></div>`,
+    <div class="actions">${isNew?"":delBtn("del-debt",d.id)}${!isNew&&d.dir==="in"&&debtLeft(d)>0?`<button type="button" class="btn ghost" data-act="share-debt" data-id="${d.id}">Напомнить</button>`:""}<span class="grow"></span><button class="btn pri">${isNew?"Добавить":"Сохранить"}</button></div>`,
   fd=>{
     const who=String(fd.get("who")).trim(),amount=num(fd.get("amount"));
     if(!who||!amount){toast("Укажи, кто, и сумму");return false}
@@ -727,12 +798,13 @@ function sheetRepay(d){
     ${fld("Сумма",`<input name="a" id="f-ra" inputmode="decimal" value="${left}">`)}
     <div class="actions"><button type="button" class="btn ghost" data-act="repay-all" data-id="${d.id}">Весь долг</button><span class="grow"></span><button class="btn pri">Записать</button></div>`,
   fd=>{const a=Math.min(left,num(fd.get("a")));if(a<=0){toast("Введи сумму");return false}
-    d.paid=(d.paid||0)+a;(d.log=d.log||[]).push({d:todayKey(),a});commit();toast(debtLeft(d)<=0?"Долг закрыт":"Записано");});
+    repayDebt(d.id,a);});
 }
 function sheetTask(x,date){
   const isNew=!x;x=x||{title:"",date:date||todayKey(),time:""};
   openSheet(isNew?"Новое дело":"Дело",`
-    ${fld("Что сделать",`<input name="title" id="f-ttitle" value="${esc(x.title)}" placeholder="Например, оплатить интернет">`)}
+    ${fld("Что сделать",`<input name="title" id="f-ttitle" value="${esc(x.title)}" placeholder="Например, оплатить интернет" list="dl-ttitle" autocomplete="off">`)}
+    ${dlist("dl-ttitle",state.tasks.slice().reverse().map(t=>t.title))}
     <div class="two">${fld("День",`<input type="date" name="date" id="f-tdate" value="${x.date}">`)}${fld("Время",`<input type="time" name="time" id="f-ttime" value="${x.time||""}">`)}</div>
     ${x.moved?`<p class="note">Переносилось ${x.moved} ${plural(x.moved,"раз","раза","раз")}, изначально на ${fmtDate(x.from)}.</p>`:""}
     <div class="actions">${isNew?"":delBtn("del-task",x.id)}${!isNew&&!x.done?`<button type="button" class="btn ghost" data-act="task-tomorrow" data-id="${x.id}">На завтра</button>`:""}<span class="grow"></span><button class="btn pri">${isNew?"Добавить":"Сохранить"}</button></div>`,
@@ -784,6 +856,34 @@ function sheetAddChooser(){
   openSheet("Что добавить?",`<div class="list" style="box-shadow:none;border:1px solid var(--line)">
     ${[["new-pay","Платёж","подписка, регулярная оплата, рассрочка"],["new-debt","Долг","кому должна ты или кто должен тебе"],["new-event","Событие","день рождения, праздник, поездка"],["new-task","Дело","задача на день"]].map(([a,t,m])=>`<button type="button" class="item tap" style="width:100%;border-left:0;border-right:0;border-bottom:0;background:none;text-align:left" data-act="${a}"><div class="main"><div class="t">${t}</div><div class="m">${m}</div></div></button>`).join("")}</div>`,()=>{});
 }
+/* ---------- search ---------- */
+function searchHtml(raw){
+  const q=norm(raw);
+  if(!q)return `<p class="note">Ищу по названиям и заметкам платежей, долгов, дел и событий.</p>`;
+  const hit=(...f)=>f.some(v=>norm(v).includes(q));
+  const box=(title,arr)=>arr.length?`<h2 class="sec" style="margin:14px 0 8px">${title}<span class="chip" style="margin-left:auto">${arr.length}</span></h2><div class="list" style="box-shadow:none;border:1px solid var(--line)">${arr.slice(0,30).join("")}</div>`:"";
+  const pays=state.payments.filter(p=>hit(p.name,p.note)).map(p=>{const n=nextDue(p);
+    return `<div class="item tap" data-act="edit-pay" data-id="${p.id}"><div class="main"><div class="t">${esc(p.name)}</div><div class="m"><span>${KIND[p.kind]}</span>${n?`<span>след. ${fmtDate(n.k)}</span>`:`<span class="chip">архив</span>`}</div></div><div class="amt">${money(p.amount)}</div></div>`});
+  const debts=state.debts.filter(d=>hit(d.who,d.note)).map(d=>{const left=debtLeft(d);
+    return `<div class="item tap ${left<=0?"done":""}" data-act="edit-debt" data-id="${d.id}"><div class="main"><div class="t">${esc(d.who)}</div><div class="m"><span>${d.dir==="out"?"я должна":"мне должны"}</span>${d.note?`<span>${esc(d.note)}</span>`:""}${left<=0?`<span class="chip green">закрыт</span>`:""}</div></div><div class="amt">${money(left)}</div></div>`});
+  const tasks=state.tasks.filter(x=>hit(x.title)).sort((a,b)=>a.done-b.done||b.date.localeCompare(a.date)).map(x=>
+    `<div class="item tap ${x.done?"done":""}" data-act="edit-task" data-id="${x.id}"><div class="main"><div class="t">${esc(x.title)}</div><div class="m"><span>${fmtDate(x.date)}</span>${x.done?`<span class="chip green">сделано</span>`:""}</div></div></div>`);
+  const evs=state.events.filter(e=>hit(e.title)).map(e=>
+    `<div class="item tap" data-act="occ" data-ref="e:${e.id}" data-date="${e.date}"><div class="main"><div class="t">${esc(e.title)}</div><div class="m"><span>${fmtDate(e.date)}</span>${e.kind==="birthday"?`<span class="chip blue">день рождения</span>`:""}${e.yearly?`<span>каждый год</span>`:""}</div></div></div>`);
+  const html=box("Платежи",pays)+box("Долги",debts)+box("Дела",tasks)+box("События",evs);
+  return html||`<p class="note">Ничего не нашлось.</p>`;
+}
+function sheetSearch(){
+  const q=ui.q||"";
+  openSheet("Поиск",`${fld("Что найти",`<input type="search" name="q" id="f-q" value="${esc(q)}" autocomplete="off" enterkeyhint="search" placeholder="Название, имя или заметка">`)}<div id="sres">${searchHtml(q)}</div>`,
+  ()=>{const i=$("#f-q");if(i)i.blur();return false},
+  ()=>{const i=$("#f-q");i.addEventListener("input",()=>{ui.q=i.value;$("#sres").innerHTML=searchHtml(i.value)});if(q)setTimeout(()=>{i.focus();i.select()},60)});
+}
+/* ---------- home screen shortcuts: ./?new=pay | task | debt ---------- */
+function openLaunch(n){
+  const m={pay:["pay",()=>sheetPay()],task:["tasks",()=>sheetTask()],debt:["debts",()=>sheetDebt(null,"out")]}[n];
+  if(!m)return;setTab(m[0],true);render();window.scrollTo({top:0});m[1]();
+}
 function sheetSettings(){
   const L=state.look||{};
   openSheet("Настройки",`
@@ -834,27 +934,40 @@ document.addEventListener("click",e=>{
     case "fab":({home:sheetAddChooser,pay:()=>sheetPay(),debts:()=>sheetDebt(null,ui.debtFilter),cal:()=>sheetEvent(null,ui.calSel),tasks:()=>sheetTask()})[ui.tab]();break;
     case "new-pay":sheetPay();break;case "new-debt":sheetDebt();break;case "new-event":sheetEvent(null,todayKey());break;case "new-task":sheetTask();break;
     case "settings":sheetSettings();break;
+    case "search":sheetSearch();break;
     case "goto":setTab(el.dataset.tab,true);if(el.dataset.f)ui.debtFilter=el.dataset.f;render();window.scrollTo({top:0});break;
-    case "toggle-paid":togglePaid(id,el.dataset.k);break;
+    case "toggle-paid":{const k=el.dataset.k;
+      if(el.classList.contains("paid"))togglePaid(id,k);
+      else celebrate(el,ICON_CHECK+"Оплачено","btn sm paid",()=>togglePaid(id,k));
+      break}
     case "edit-pay":sheetPay(state.payments.find(x=>x.id===id));break;
-    case "del-pay":armDelete(el,()=>{state.payments=state.payments.filter(x=>x.id!==id);commit();toast("Платёж удалён")});break;
+    case "copy-pay":{const p=state.payments.find(x=>x.id===id);if(p)sheetPay(null,{kind:p.kind,name:p.name,amount:p.amount,freq:p.freq,note:p.note||"",parts:p.parts||6,prePaid:0,start:todayKey()});break}
+    case "del-pay":removeWithUndo("payments",id,"Платёж удалён");break;
     case "end-pay":{const p=state.payments.find(x=>x.id===id);p.end=todayKey();commit();closeSheet();toast("Платёж отключён");break}
     case "resume-pay":{const p=state.payments.find(x=>x.id===id);delete p.end;p.trackFrom=todayKey();commit();closeSheet();toast("Платёж возобновлён");break}
     case "payf":ui.payFilter=el.dataset.f;render();break;
     case "debtf":ui.debtFilter=el.dataset.f;render();break;
     case "edit-debt":sheetDebt(state.debts.find(x=>x.id===id));break;
     case "repay":sheetRepay(state.debts.find(x=>x.id===id));break;
-    case "repay-all":{const d=state.debts.find(x=>x.id===id),l=debtLeft(d);d.paid=d.amount;(d.log=d.log||[]).push({d:todayKey(),a:l});commit();closeSheet();toast("Долг закрыт");break}
-    case "del-debt":armDelete(el,()=>{state.debts=state.debts.filter(x=>x.id!==id);commit();toast("Долг удалён")});break;
-    case "toggle-task":{const x=state.tasks.find(t=>t.id===id);x.done=!x.done;x.doneAt=x.done?Date.now():0;if(!x.done)rollover();commit();break}
+    case "repay-all":{const d=state.debts.find(x=>x.id===id);if(d)repayDebt(id,debtLeft(d));closeSheet();break}
+    case "del-debt":removeWithUndo("debts",id,"Долг удалён");break;
+    case "share-debt":{const d=state.debts.find(x=>x.id===id);if(d)shareDebt(d);break}
+    case "toggle-task":{const x=state.tasks.find(t=>t.id===id);if(!x)break;
+      const go=()=>{const y=state.tasks.find(t=>t.id===id);if(!y)return;y.done=!y.done;y.doneAt=y.done?Date.now():0;if(!y.done)rollover();commit()};
+      if(x.done)go();else celebrate(el,ICON_CHECK,"check on",go);
+      break}
     case "edit-task":sheetTask(state.tasks.find(t=>t.id===id));break;
     case "add-task-on":sheetTask(null,el.dataset.k);break;
     case "task-tomorrow":{const x=state.tasks.find(t=>t.id===id);x.from=x.from||x.date;x.moved=(x.moved||0)+1;x.date=addDays(todayKey(),1);commit();closeSheet();toast("Перенесено на завтра");break}
-    case "del-task":armDelete(el,()=>{state.tasks=state.tasks.filter(x=>x.id!==id);commit();toast("Дело удалено")});break;
-    case "clear-done":state.tasks=state.tasks.filter(x=>!x.done);commit();break;
+    case "del-task":removeWithUndo("tasks",id,"Дело удалено");break;
+    case "clear-done":{const removed=state.tasks.filter(x=>x.done);if(!removed.length)break;
+      state.tasks=state.tasks.filter(x=>!x.done);commit();
+      toast(`Очищено: ${removed.length}`,{undo:()=>{const ids=new Set(state.tasks.map(x=>x.id));state.tasks.push(...removed.filter(x=>!ids.has(x.id)));commit();toast("Восстановлено")}});
+      break}
     case "occ":sheetOcc(el.dataset.ref,el.dataset.date);break;
-    case "del-event":armDelete(el,()=>{state.events=state.events.filter(x=>x.id!==id);commit();toast("Событие удалено")});break;
-    case "hide-hol":state.hiddenHol.push(id);commit();closeSheet();toast("Праздник скрыт");break;
+    case "del-event":removeWithUndo("events",id,"Событие удалено");break;
+    case "hide-hol":state.hiddenHol.push(id);commit();closeSheet();
+      toast("Праздник скрыт",{undo:()=>{state.hiddenHol=state.hiddenHol.filter(h=>h!==id);commit()}});break;
     case "unhide":state.hiddenHol=[];commit();break;
     case "cal-prev":ui.calM--;if(ui.calM<0){ui.calM=11;ui.calY--}render();break;
     case "cal-next":ui.calM++;if(ui.calM>11){ui.calM=0;ui.calY++}render();break;
@@ -869,20 +982,33 @@ document.addEventListener("click",e=>{
     case "install":closeSheet();doInstall();break;
     case "install-hide":try{localStorage.setItem(LS+"-noinstall","1")}catch(_){}render();toast("Установить можно в Настройках");break;
     case "demo":closeSheet();demo();break;
-    case "reset":armDelete(el,()=>{const c=state.currency,lk=state.look;state=blank();state.currency=c;state.look=lk;commit();toast("Все данные стёрты")});break;
+    case "reset":armDelete(el,()=>{const snap=clone(state),c=state.currency,lk=state.look;state=blank();state.currency=c;state.look=lk;commit();
+      toast("Все данные стёрты",{undo:()=>{state=Object.assign(blank(),snap);applyLook();commit();toast("Данные восстановлены")}})});break;
   }
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#sheet-root").innerHTML)closeSheet()});
 
-let toastT;function toast(msg){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";t.setAttribute("role","status");document.body.appendChild(t)}t.textContent=msg;clearTimeout(toastT);toastT=setTimeout(()=>t.remove(),2200)}
+/* toast(msg) or toast(msg,{undo:fn}) — with undo it stays 5 s and shows «Отменить» */
+let toastT;
+function toast(msg,opt){
+  opt=opt||{};
+  let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";t.setAttribute("role","status");document.body.appendChild(t)}
+  t.innerHTML=`<span>${esc(msg)}</span>`;
+  if(opt.undo){const b=document.createElement("button");b.type="button";b.textContent="Отменить";
+    b.addEventListener("click",()=>{clearTimeout(toastT);t.remove();opt.undo()});t.appendChild(b)}
+  clearTimeout(toastT);toastT=setTimeout(()=>t.remove(),opt.undo?5000:2200);
+}
 
 /* day change watcher: tasks roll over at midnight */
 let lastDay=todayKey();
 setInterval(()=>{const t=todayKey();if(t!==lastDay){lastDay=t;if(rollover())commit();else render()}},30000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){const t=todayKey();if(t!==lastDay){lastDay=t;if(rollover())commit();else render()}}});
 
+let launch=null;
+try{launch=new URLSearchParams(location.search).get("new");if(launch)history.replaceState(null,"",location.pathname+location.hash)}catch(e){}
 histInit();
 if(rollover())commit();else render();
+if(launch)openLaunch(launch);
 startCloud();
 if("serviceWorker" in navigator&&canInstall())navigator.serviceWorker.register("sw.js").catch(()=>{});
 })();

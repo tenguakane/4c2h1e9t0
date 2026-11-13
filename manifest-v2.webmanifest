@@ -29,5 +29,28 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Новый платёж",
+      "short_name": "Платёж",
+      "description": "Добавить подписку, регулярный платёж или рассрочку",
+      "url": "./?new=pay",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Новое дело",
+      "short_name": "Дело",
+      "description": "Добавить задачу на день",
+      "url": "./?new=task",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Новый долг",
+      "short_name": "Долг",
+      "description": "Записать, кому должна или кто должен",
+      "url": "./?new=debt",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
   ]
 }
